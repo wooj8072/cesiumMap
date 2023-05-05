@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <!-- Include the CesiumJS JavaScript and CSS files -->
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.105/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.105/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+</head>
+<body>
+<div id="cesiumContainer"></div>
+<script>
+    // Your access token can be found at: https://ion.cesium.com/tokens.
+    // This is the default access token from your ion account
+
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2ZTM1ZjU1MC0yOTAyLTRlNTAtOGY4OS1lNzE5ZTAzYjNiZGEiLCJpZCI6MTM2ODU4LCJpYXQiOjE2ODMyODk3OTl9.F6W5Nwfwa9gVbg_GfSpy_5Jxyhz0rCCIRmTiMr2ZsCU';
+    // Initialize the Cesium Viewer in the HTML element with the `cesiumContainer` ID.
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+        terrainProvider: Cesium.createWorldTerrain(),
+        animation: false,
+        baseLayerPicker: false,
+        fullscreenButton: false,
+        vrButton: false,
+        geocoder: false,
+        homeButton: false,
+        infoBox: false,
+        sceneModePicker: false,
+        selectionIndicator: false,
+        timeline: false,
+        navigationHelpButton: false,
+        projectionPicker: false,
+        selectedEntity: false,
+        trackedEntity: false,
+        clockTrackedDataSource: false,
+    });
+    // Add Cesium OSM Buildings, a global 3D buildings layer.
+    const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());
+
+    var destination = Cesium.Cartesian3.fromDegrees(127.110697, 37.381234);
+    // Fly the camera to San Francisco at the given longitude, latitude, and height.
+    viewer.camera.flyTo({
+        destination: destination,
+        duration: 1,
+        orientation: {
+            heading: Cesium.Math.toRadians(0.0),
+            pitch: Cesium.Math.toRadians(-30.0),
+            roll: Cesium.Math.toRadians(0.0),
+            zoomOutAmount: 2.0
+        }
+    });
+</script>
+</div>
+</body>
+</html>
