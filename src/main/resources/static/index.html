@@ -5,12 +5,12 @@
     <!-- Include the CesiumJS JavaScript and CSS files -->
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.105/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.105/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <script src="https://unpkg.com/cesium-esri-widgets/Build/Cesium/Widgets/Esri/WorldView.js"></script>
 </head>
 <body>
 <div id="cesiumContainer"></div>
+<button onclick="handleMouseClick()">거리재기</button>
 <script>
-    // Your access token can be found at: https://ion.cesium.com/tokens.
-    // This is the default access token from your ion account
 
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2ZTM1ZjU1MC0yOTAyLTRlNTAtOGY4OS1lNzE5ZTAzYjNiZGEiLCJpZCI6MTM2ODU4LCJpYXQiOjE2ODMyODk3OTl9.F6W5Nwfwa9gVbg_GfSpy_5Jxyhz0rCCIRmTiMr2ZsCU';
     // Initialize the Cesium Viewer in the HTML element with the `cesiumContainer` ID.
@@ -47,6 +47,30 @@
             zoomOutAmount: 2.0
         }
     });
+
+    // [거리측정]
+    function click(event) {
+        // 마우스 클릭 위치의 3D 좌표
+        var mousePosition = new Cesium.Cartesian2(event.clientX, event.clientY); /xy좌표
+        var pickedPosition = viewer.scene.pickPosition(mousePosition);
+
+        if (Cesium.defined(pickedPosition)) {
+            // 선택한 좌표를 사용하여 원하는 작업을 수행합니다.
+            console.log('Selected position:', pickedPosition);
+        }
+    }
+
+
+    //두점사이의 거리 구한 후 이어서
+    // var worldView = new Cesium.EsriWorldView({
+    //     container: 'cesiumContainer',
+    //     map: viewer.scene.map
+    // });
+    // worldView.distanceMeasurementEnabled = true;
+    // var measurementResult = worldView.distanceMeasurementResult;
+    // var distance = measurementResult.distance;
+    // console.log('Distance:', distance);
+
 </script>
 </div>
 </body>
