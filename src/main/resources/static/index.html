@@ -57,75 +57,77 @@
     });
 
 
-    //5번
-    var points = [];
+    // //5번 <시작>
+    javascript
+    Copy code
+    var viewer = new Cesium.Viewer('cesiumContainer');
 
     var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+    var points = [];
+    var totalDistance = 0;
+    var startMarker = null;
+    var distanceLabel = viewer.entities.add({
+        label: {
+            show: false,
+            showBackground: true,
+            backgroundColor: Cesium.Color.WHITE,
+            font: '14px monospace',
+            fillColor: Cesium.Color.BLACK,
+            horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+            verticalOrigin: Cesium.VerticalOrigin.TOP,
+            pixelOffset: new Cesium.Cartesian2(15, 0)
+        }
+    });
 
-    var total = 0;
+    handler.setInputAction(function(click) {
+        if (Cesium.ScreenSpaceEventType.RIGHT_CLICK === click.event.type) {
+            // 마우스 우클릭 시 총 거리 라벨로 표시하고 초기화
+            distanceLabel.label.show = true;
+            distanceLabel.label.text = 'Total distance: ' + totalDistance.toFixed(2) + ' meters';
 
-    handler.setInputAction(function (click) {
-        var windowPosition = new Cesium.Cartesian2(click.position.x, click.position.y);
-        var pickRay = viewer.camera.getPickRay(windowPosition);
-        var intersection = viewer.scene.globe.pick(pickRay, viewer.scene);
+            // 새로운 거리 재기를 위해 변수 초기화
+            points = [];
+            totalDistance = 0;
+            startMarker = null;
+            return;
+        }
 
-        if (Cesium.defined(intersection)) {
-            var point = intersection;
-            addPointMarker(point);
-            points.push(point);
+        var windowPosition = click.position;
 
-            if (points.length >= 2) {
-                var totalDistance = 0;
-                for (var i = 1; i < points.length; i++) {
-                    var distance = Cesium.Cartesian3.distance(points[i - 1], points[i]);
-                    totalDistance += distance;
-                }
-                total = totalDistance.toFixed(2);
-                // console.log('Total distance: ' + totalDistance.toFixed(2) + ' meters');
+        var pickedObject = viewer.scene.pick(windowPosition);
+        if (Cesium.defined(pickedObject)) {
+            var cartesian = viewer.scene.pickPosition(windowPosition);
+            var cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+            var longitude = Cesium.Math.toDegrees(cartographic.longitude);
+            var latitude = Cesium.Math.toDegrees(cartographic.latitude);
+            var height = cartographic.height;
+
+            console.log('Clicked at:', longitude, latitude, height);
+
+            if (!startMarker) {
+                startMarker = addPointMarker(cartesian, Cesium.Color.GREEN);
+            } else {
+                addPointMarker(cartesian, Cesium.Color.RED);
+                var distance = Cesium.Cartesian3.distance(startMarker.position.getValue(), cartesian);
+                totalDistance += distance;
+                console.log('Partial distance:', distance.toFixed(2), 'meters');
             }
+            points.push(cartesian);
         }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-    handler.setInputAction(function (click) {
-        alert("총거리는 : " + total);
-        total = 0;
-    }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
-
-    //점 스타일 속성
-    function addPointMarker(position) {
-        viewer.entities.add({
+    function addPointMarker(position, color) {
+        return viewer.entities.add({
             position: position,
             point: {
-                pixelSize: 7,
-                color: Cesium.Color.GREEN,
+                pixelSize: 10,
+                color: color,
                 outlineColor: Cesium.Color.BLACK,
                 outlineWidth: 2
             }
         });
     }
-    // function click(event) {
-    //     // 마우스 클릭 위치의 3D 좌표
-    //     var mousePosition = new Cesium.Cartesian2(event.clientX, event.clientY); //xy좌표
-    //     var pickedPosition = viewer.scene.pickPosition(mousePosition);
-    //
-    //     if (Cesium.defined(pickedPosition)) {
-    //         // 선택한 좌표를 사용하여 원하는 작업을 수행합니다.
-    //         console.log('Selected position:', pickedPosition);
-    //     }
-    // }
-
-
-    //두점사이의 거리 구한 후 이어서
-    // var worldView = new Cesium.EsriWorldView({
-    //     container: 'cesiumContainer',
-    //     map: viewer.scene.map
-    // });
-    // worldView.distanceMeasurementEnabled = true;
-    // var measurementResult = worldView.distanceMeasurementResult;
-    // var distance = measurementResult.distance;
-    // console.log('Distance:', distance);
 
 </script>
-</div>
 </body>
 </html>
