@@ -8,8 +8,8 @@
 <!--    <script src="https://unpkg.com/cesium-esri-widgets/Build/Cesium/Widgets/Esri/WorldView.js"></script>-->
 <style>
     .cesium-widget, .cesium-widget canvas{
-        width: 90%;
-        height: 90%;
+        width: 100%;
+        height: 100%;
         touch-action: none;
     }
 </style>
@@ -56,17 +56,11 @@
         }
     });
 
-
-    // //5번 <시작>
-    javascript
-    Copy code
-    var viewer = new Cesium.Viewer('cesiumContainer');
-
-    var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
     var points = [];
     var totalDistance = 0;
     var startMarker = null;
-    var distanceLabel = viewer.entities.add({
+
+    var distanceLabel = viewer.entities.add({ //총 거리 나타내는 라벨
         label: {
             show: false,
             showBackground: true,
@@ -79,55 +73,49 @@
         }
     });
 
-    handler.setInputAction(function(click) {
-        if (Cesium.ScreenSpaceEventType.RIGHT_CLICK === click.event.type) {
-            // 마우스 우클릭 시 총 거리 라벨로 표시하고 초기화
-            distanceLabel.label.show = true;
-            distanceLabel.label.text = 'Total distance: ' + totalDistance.toFixed(2) + ' meters';
+    var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
 
-            // 새로운 거리 재기를 위해 변수 초기화
-            points = [];
-            totalDistance = 0;
-            startMarker = null;
-            return;
-        }
 
-        var windowPosition = click.position;
+    handler.setInputAction(function (click) {
+        var windowPosition = new Cesium.Cartesian2(click.position.x, click.position.y);
+        var pickRay = viewer.camera.getPickRay(windowPosition);
+        var intersection = viewer.scene.globe.pick(pickRay, viewer.scene);
 
-        var pickedObject = viewer.scene.pick(windowPosition);
-        if (Cesium.defined(pickedObject)) {
-            var cartesian = viewer.scene.pickPosition(windowPosition);
-            var cartographic = Cesium.Cartographic.fromCartesian(cartesian);
-            var longitude = Cesium.Math.toDegrees(cartographic.longitude);
-            var latitude = Cesium.Math.toDegrees(cartographic.latitude);
-            var height = cartographic.height;
-
-            console.log('Clicked at:', longitude, latitude, height);
-
+        if (Cesium.defined(intersection)) {
+            var point = intersection;
             if (!startMarker) {
-                startMarker = addPointMarker(cartesian, Cesium.Color.GREEN);
+                startMarker = addPointMarker(point, Cesium.Color.GREEN);
             } else {
-                addPointMarker(cartesian, Cesium.Color.RED);
-                var distance = Cesium.Cartesian3.distance(startMarker.position.getValue(), cartesian);
+                addPointMarker(point, Cesium.Color.RED);
+                var distance = Cesium.Cartesian3.distance(startMarker.position.getValue(), point);
                 totalDistance += distance;
-                console.log('Partial distance:', distance.toFixed(2), 'meters');
+                distanceLabel.label.show = true;
+                distanceLabel.position = point;
+                distanceLabel.label.text = 'Total distance: ' + totalDistance.toFixed(2) + ' meters';
             }
-            points.push(cartesian);
+            points.push(point);
         }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+    handler.setInputAction(function (click) {
+        startMarker = null;
+        points = [];
+        totalDistance = 0;
+        return;
+    }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
 
     function addPointMarker(position, color) {
         return viewer.entities.add({
             position: position,
             point: {
-                pixelSize: 10,
+                pixelSize: 7,
                 color: color,
-                outlineColor: Cesium.Color.BLACK,
-                outlineWidth: 2
+                // outlineColor: Cesium.Color.BLACK,
+                // outlineWidth: 2
             }
         });
     }
-
 </script>
+</div>
 </body>
 </html>
