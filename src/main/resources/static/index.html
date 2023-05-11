@@ -62,22 +62,8 @@
     var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
     var pointEntity = null;
     var polylineEntity = null;
-
-
-    var distanceLabel = viewer.entities.add({ //총 거리 나타내는 라벨
-        label: {
-            show: false,
-            showBackground: true,
-            backgroundColor: Cesium.Color.WHITE,
-            font: '14px monospace',
-            fillColor: Cesium.Color.BLACK,
-            horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
-            verticalOrigin: Cesium.VerticalOrigin.TOP,
-            pixelOffset: new Cesium.Cartesian2(15, 0)
-        }
-    });
-
     var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+    var distanceLabel="";
 
 
     handler.setInputAction(function (click) {
@@ -88,13 +74,27 @@
         if (Cesium.defined(intersection)) {
             var point = intersection;
             if (!startMarker) {
+                totalDistance = 0;
                 startMarker = addPointMarker(point, Cesium.Color.YELLOW);
             } else {
                 addPointMarker(point, Cesium.Color.YELLOW);
-                var distance = Cesium.Cartesian3.distance(startMarker.position.getValue(), point);
-                totalDistance += distance;
-                distanceLabel.label.show = true;
-                distanceLabel.position = point;
+
+                distanceLabel = viewer.entities.add({ //총 거리 나타내는 라벨
+                    label: {
+                        show: false,
+                        showBackground: true,
+                        backgroundColor: Cesium.Color.WHITE,
+                        font: '14px monospace',
+                        fillColor: Cesium.Color.BLACK,
+                        horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+                        verticalOrigin: Cesium.VerticalOrigin.TOP,
+                        pixelOffset: new Cesium.Cartesian2(15, 0)
+                    }
+                });
+
+                //var distance = Cesium.Cartesian3.distance(startMarker.position.getValue(), point);
+                //var positions = polylineEntity.polyline.positions.getValue(); // 선 엔티티의 위치 배열 얻기
+                //var totalDistance = 0;
 
                 // 이전 점과 현재 점 사이에 선으로 연결
                 var previousPoint = points[points.length - 1];
@@ -105,20 +105,43 @@
                         material: Cesium.Color.YELLOW
                     }
                 });
-                distanceLabel.label.text = 'Total distance: ' + totalDistance.toFixed(2) + ' meters';
 
             }
             points.push(point);
+            if(points.length >1){
+                for (var i = 1; i < points.length; i++) {
+                    var distance = Cesium.Cartesian3.distance(points[i - 1], points[i]);
+                    totalDistance += distance;
+                }
+
+                console.log('Total distance: ' + totalDistance.toFixed(2) + ' meters');
+                //totalDistance = distance;
+                distanceLabel.label.show = true; //라벨 보이게
+                distanceLabel.position = point; //거리 라벨에 선언
+                distanceLabel.label.text = '거리: ' + totalDistance.toFixed(2) + 'm';
+            }
+
         }
     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
+
     handler.setInputAction(function (click) {
+        // 마우스 선 지우기
+        if (polylineEntity) {
+            viewer.entities.remove(polylineEntity); //이어지지 않은 선 제거
+            polylineEntity = null;
+
+        }
+
+        distanceLabel.label.text = '총 거리: ' + totalDistance.toFixed(2) + 'm';
+        // 기타 초기화 작업
         startMarker = null;
         points = [];
         totalDistance = 0;
         return;
     }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
-    ;
+
+
 
     handler.setInputAction(function (movement) {
         var cartesian = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
@@ -156,6 +179,7 @@
             }
         });
     }
+
     function addPolyline(positions, color) {
         return viewer.entities.add({
             polyline: {
