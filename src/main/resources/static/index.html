@@ -88,9 +88,9 @@
         if (Cesium.defined(intersection)) {
             var point = intersection;
             if (!startMarker) {
-                startMarker = addPointMarker(point, Cesium.Color.GREEN);
+                startMarker = addPointMarker(point, Cesium.Color.YELLOW);
             } else {
-                addPointMarker(point, Cesium.Color.RED);
+                addPointMarker(point, Cesium.Color.YELLOW);
                 var distance = Cesium.Cartesian3.distance(startMarker.position.getValue(), point);
                 totalDistance += distance;
                 distanceLabel.label.show = true;
@@ -101,8 +101,8 @@
                 var polyline = viewer.entities.add({
                     polyline: {
                         positions: [previousPoint, point],
-                        width: 0.5,
-                        material: Cesium.Color.BLUE
+                        width: 2.0,
+                        material: Cesium.Color.YELLOW
                     }
                 });
                 distanceLabel.label.text = 'Total distance: ' + totalDistance.toFixed(2) + ' meters';
@@ -118,16 +118,29 @@
         totalDistance = 0;
         return;
     }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+    ;
 
     handler.setInputAction(function (movement) {
         var cartesian = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
         if (cartesian) {
             if (!pointEntity) {
-                // 새로운 포인트 엔티티 생성
-                pointEntity = addPointMarker(cartesian, Cesium.Color.GREEN);
+                // Create a new point entity
+                pointEntity = addPointMarker(cartesian, Cesium.Color.YELLOW);
             } else {
-                // 포인트 엔티티의 위치 업데이트
+                // Update the position of the point entity
                 pointEntity.position = cartesian;
+            }
+
+            if (points.length > 0) {
+                // Update the polyline entity with the new positions
+                var previousPoint = points[points.length - 1];
+                var positions = [previousPoint, cartesian];
+
+                if (polylineEntity) {
+                    polylineEntity.polyline.positions = positions;
+                } else {
+                    polylineEntity = addPolyline(positions, Cesium.Color.YELLOW);
+                }
             }
         }
     }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
@@ -138,8 +151,8 @@
             point: {
                 pixelSize: 7,
                 color: color,
-                // outlineColor: Cesium.Color.BLACK,
-                // outlineWidth: 2
+                outlineColor: Cesium.Color.ORANGE,
+                outlineWidth: 2
             }
         });
     }
