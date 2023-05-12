@@ -75,31 +75,19 @@
 
             if (Cesium.defined(intersection)) {
                 var point = intersection;
+
                 if (!startMarker) {
                     totalDistance = 0;
                     startMarker = addPointMarker(point, Cesium.Color.YELLOW);
                 } else {
                     addPointMarker(point, Cesium.Color.YELLOW);
 
-                    distanceLabel = viewer.entities.add({
-                        label: {
-                            show: false,
-                            showBackground: true,
-                            backgroundColor: Cesium.Color.WHITE,
-                            font: '14px monospace',
-                            fillColor: Cesium.Color.BLACK,
-                            horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
-                            verticalOrigin: Cesium.VerticalOrigin.TOP,
-                            pixelOffset: new Cesium.Cartesian2(15, 0)
-                        }
-                    });
-
-                    //var distance = Cesium.Cartesian3.distance(startMarker.position.getValue(), point);
-                    //var positions = polylineEntity.polyline.positions.getValue(); // 선 엔티티의 위치 배열 얻기
-                    //var totalDistance = 0;
-
-                    // 이전 점과 현재 점 사이에 선으로 연결
+                    // Calculate distance between previous point and current point
                     var previousPoint = points[points.length - 1];
+                    var distance = Cesium.Cartesian3.distance(previousPoint, point);
+                    totalDistance += distance;
+
+                    // Draw a line between previous point and current point
                     var polyline = viewer.entities.add({
                         polyline: {
                             positions: [previousPoint, point],
@@ -108,19 +96,26 @@
                         }
                     });
 
-                }
-                points.push(point);
-                if (points.length > 1) {
-                    for (var i = 1; i < points.length; i++) {
-                        var distance = Cesium.Cartesian3.distance(points[i - 1], points[i]);
-                        totalDistance += distance;
+                    // Update distance label
+                    if (!distanceLabel) {
+                        distanceLabel = viewer.entities.add({
+                            label: {
+                                show: false,
+                                showBackground: true,
+                                backgroundColor: Cesium.Color.WHITE,
+                                font: '14px monospace',
+                                fillColor: Cesium.Color.BLACK,
+                                horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+                                verticalOrigin: Cesium.VerticalOrigin.TOP,
+                                pixelOffset: new Cesium.Cartesian2(15, 0)
+                            }
+                        });
                     }
-
-                    distanceLabel.label.show = true; //라벨 보이게
-                    distanceLabel.position = point; //거리 라벨에 선언
+                    distanceLabel.label.show = true;
+                    distanceLabel.position = point;
                     distanceLabel.label.text = '거리: ' + totalDistance.toFixed(2) + 'm';
                 }
-
+                points.push(point);
             }
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
