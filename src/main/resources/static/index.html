@@ -2,10 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <!-- Include the CesiumJS JavaScript and CSS files -->
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.105/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.105/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-    <!--    <script src="https://unpkg.com/cesium-esri-widgets/Build/Cesium/Widgets/Esri/WorldView.js"></script>-->
     <style>
         .cesium-widget, .cesium-widget canvas {
             width: 100%;
@@ -17,12 +15,10 @@
 <body>
 <div id="cesiumContainer"></div>
 <button onclick="handleMouseClick()">거리측정</button>
+<button onclick="removeElements()">지우기</button>
 <script>
-    // Your access token can be found at: https://ion.cesium.com/tokens.
-    // This is the default access token from your ion account
 
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2ZTM1ZjU1MC0yOTAyLTRlNTAtOGY4OS1lNzE5ZTAzYjNiZGEiLCJpZCI6MTM2ODU4LCJpYXQiOjE2ODMyODk3OTl9.F6W5Nwfwa9gVbg_GfSpy_5Jxyhz0rCCIRmTiMr2ZsCU';
-    // Initialize the Cesium Viewer in the HTML element with the `cesiumContainer` ID.
     const viewer = new Cesium.Viewer('cesiumContainer', {
         terrainProvider: Cesium.createWorldTerrain(),
         animation: false,
@@ -41,9 +37,11 @@
         trackedEntity: false,
         clockTrackedDataSource: false,
     });
-    const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings());
+    const buildingTileset = viewer.scene.primitives.add(Cesium.createOsmBuildings()); //빌딩 객체 추가
 
-    var destination = Cesium.Cartesian3.fromDegrees(127.110697, 37.381234, 1000);//카메라 좌표설정
+
+    //카메라 설정
+    var destination = Cesium.Cartesian3.fromDegrees(127.110697, 37.381234, 1000);
     viewer.camera.flyTo({
         destination: destination,
         duration: 1,
@@ -57,18 +55,20 @@
 
 
     //거리측정 부분
-    var points = [];
-    var totalDistance = 0;
-    var startMarker = null;
+    var points = [];            //점들의 배열
+    var totalDistance = 0;      //총거리 저장하는 변수
+    var startMarker = null;     //처음 시작 점
     var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
     var pointEntity = null;
-    var polylineEntity = null;
-    var distanceLabel = "";
+    var polylineEntity = null;  //점사이 선
+    var distanceLabel = "";     //거리측정 라벨
 
     function handleMouseClick() {
 
-        //마우스 왼쪽클릭
+        //마우스 왼쪽클릭 시
         handler.setInputAction(function (click) {
+
+            //위치좌표
             var windowPosition = new Cesium.Cartesian2(click.position.x, click.position.y);
             var pickRay = viewer.camera.getPickRay(windowPosition);
             var intersection = viewer.scene.globe.pick(pickRay, viewer.scene);
@@ -76,18 +76,16 @@
             if (Cesium.defined(intersection)) {
                 var point = intersection;
 
-                if (!startMarker) {
+                if (!startMarker) { //처음포인트 찍기 전
                     totalDistance = 0;
                     startMarker = addPointMarker(point, Cesium.Color.YELLOW);
-                } else {
+                } else { //처음포인트 찍은 후
                     addPointMarker(point, Cesium.Color.YELLOW);
 
-                    // Calculate distance between previous point and current point
                     var previousPoint = points[points.length - 1];
                     var distance = Cesium.Cartesian3.distance(previousPoint, point);
                     totalDistance += distance;
 
-                    // Draw a line between previous point and current point
                     var polyline = viewer.entities.add({
                         polyline: {
                             positions: [previousPoint, point],
@@ -96,7 +94,6 @@
                         }
                     });
 
-                    // Update distance label
                     if (!distanceLabel) {
                         distanceLabel = viewer.entities.add({
                             label: {
@@ -120,19 +117,19 @@
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
 
-        //마우스 오른쪽 클릭
+        //마우스 오른쪽 클릭 시
         handler.setInputAction(function (click) {
 
             if (polylineEntity) {                       // 마우스 선 지우기
                 viewer.entities.remove(polylineEntity); //이어지지 않은 선 제거
                 polylineEntity = null;
 
+            }else if (startMarker == null){ //시작점 찍지않고 종료할 경우
+                return false;
             }
-
             distanceLabel.label.text = '총 거리: ' + totalDistance.toFixed(2) + 'm';
 
-
-            // 기타 초기화 작업
+            //초기화 작업
             startMarker = null;
             points = [];
             totalDistance = 0;
@@ -141,20 +138,18 @@
 
         //마우스 움직일 때
         handler.setInputAction(function (movement) {
-            var cartesian = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
+            var cartesian = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid); //클릭한 곳의 위치좌표
+
             if (cartesian) {
-                if (!pointEntity) {
-                    // Create a new point entity
+                if (!pointEntity) { //시작점이 없으면 새로운 점 추가
                     pointEntity = addPointMarker(cartesian, Cesium.Color.YELLOW);
-                } else {
-                    // Update the position of the point entity
+                } else { //시작점이 있는경우 마우스위치로 포인트가 따라다님
                     pointEntity.position = cartesian;
                 }
 
-                if (points.length > 0) {
-                    // Update the polyline entity with the new positions
-                    var previousPoint = points[points.length - 1];
-                    var positions = [previousPoint, cartesian];
+                if (points.length > 0) { //시작점이 있으면, 점하나 찍었을 때
+                    var previousPoint = points[points.length - 1]; //마지막에 추가된 점
+                    var positions = [previousPoint, cartesian]; //마지막점과 현재 마우스의 위치를 가져옴
 
                     if (polylineEntity) {
                         polylineEntity.polyline.positions = positions;
@@ -166,6 +161,21 @@
         }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
     }
 
+    //거리측정, 면적측정 지우기
+    function removeElements(){
+        viewer.entities.removeAll(); //point, line 삭제
+        handler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
+        handler.removeInputAction(Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+        handler.removeInputAction(Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+        // 초기화 작업
+        startMarker = null;
+        points = [];
+        totalDistance = 0;
+        distanceLabel = "";
+        pointEntity = null;
+
+    }
 
     function addPointMarker(position, color) {
         return viewer.entities.add({
@@ -184,7 +194,11 @@
             polyline: {
                 positions: positions,
                 width: 2.0,
-                material: color
+                material: new Cesium.PolylineDashMaterialProperty({
+                    color: color,
+                    dashLength: 10.0, // 점선의 선 길이
+                    dashPattern: 255 // 점선 패턴 (0xFF 값)
+                })
             }
         });
     }
