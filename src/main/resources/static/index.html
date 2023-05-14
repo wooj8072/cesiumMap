@@ -61,8 +61,8 @@
     var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
     var pointEntity = null;
     var polylineEntity = null;  //점사이 선
-    var distanceLabel = "";     //거리측정 라벨
-
+    // var distanceLabel = "";     //거리측정 라벨
+    var distanceLabel = null;
     function handleMouseClick() {
 
         //마우스 왼쪽클릭 시
@@ -124,17 +124,18 @@
                 viewer.entities.remove(polylineEntity); //이어지지 않은 선 제거
                 polylineEntity = null;
 
-            }else if (startMarker == null){ //시작점 찍지않고 종료할 경우
+            } else if (startMarker == null) { //시작점 찍지않고 종료할 경우
                 return false;
             }
             distanceLabel.label.text = '총 거리: ' + totalDistance.toFixed(2) + 'm';
-
+            distanceLabel.label.show = true;
             //초기화 작업
             startMarker = null;
             points = [];
             totalDistance = 0;
 
         }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+
 
         //마우스 움직일 때
         handler.setInputAction(function (movement) {
@@ -159,21 +160,6 @@
                 }
             }
         }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-    }
-
-    //거리측정, 면적측정 지우기
-    function removeElements(){
-        viewer.entities.removeAll(); //point, line 삭제
-        handler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
-        handler.removeInputAction(Cesium.ScreenSpaceEventType.RIGHT_CLICK);
-        handler.removeInputAction(Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-
-        // 초기화 작업
-        startMarker = null;
-        points = [];
-        totalDistance = 0;
-        distanceLabel = "";
-        pointEntity = null;
 
     }
 
@@ -201,6 +187,21 @@
                 })
             }
         });
+    }
+    //거리측정, 면적측정 지우기
+    function removeElements() {
+        viewer.entities.removeAll(); //point, line 삭제
+        handler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
+        handler.removeInputAction(Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+        handler.removeInputAction(Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+        // 초기화 작업
+        startMarker = null;
+        points = [];
+        totalDistance = 0;
+        distanceLabel = "";
+        pointEntity = null;
+
     }
 </script>
 </body>
