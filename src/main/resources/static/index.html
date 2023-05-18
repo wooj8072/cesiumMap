@@ -15,6 +15,7 @@
 <body>
 <div id="cesiumContainer"></div>
 <button onclick="handleMouseClick()">거리측정</button>
+<button onclick="area()">면적측정</button>
 <button onclick="removeElements()">지우기</button>
 <script>
 
@@ -53,156 +54,261 @@
         }
     });
 
+    function area() {
 
-    //거리측정 부분
-    var points = [];            //점들의 배열
-    var totalDistance = 0;      //총거리 저장하는 변수
-    var startMarker = null;     //처음 시작 점
-    var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-    var pointEntity = null;
-    var polylineEntity = null;  //점사이 선
-    // var distanceLabel = "";     //거리측정 라벨
-    var distanceLabel = null;
-    function handleMouseClick() {
+        var activeShapePoints = [];
+        var activeShape;
+        var floatingPoint;
+        var drawingMode = 'polygon';
 
-        //마우스 왼쪽클릭 시
-        handler.setInputAction(function (click) {
+        var handler = new Cesium.ScreenSpaceEventHandler(viewer.canvas);
 
-            //위치좌표
-            var windowPosition = new Cesium.Cartesian2(click.position.x, click.position.y);
-            var pickRay = viewer.camera.getPickRay(windowPosition);
-            var intersection = viewer.scene.globe.pick(pickRay, viewer.scene);
+        handler.setInputAction(function (event) {
+            var earthPosition = viewer.scene.pickPosition(event.position);
 
-            if (Cesium.defined(intersection)) {
-                var point = intersection;
-
-                if (!startMarker) { //처음포인트 찍기 전
-                    totalDistance = 0;
-                    startMarker = addPointMarker(point, Cesium.Color.YELLOW);
-                } else { //처음포인트 찍은 후
-                    addPointMarker(point, Cesium.Color.YELLOW);
-
-                    var previousPoint = points[points.length - 1];
-                    var distance = Cesium.Cartesian3.distance(previousPoint, point);
-                    totalDistance += distance;
-
-                    var polyline = viewer.entities.add({
-                        polyline: {
-                            positions: [previousPoint, point],
-                            width: 2.0,
-                            material: Cesium.Color.YELLOW
-                        }
-                    });
-
-                    if (!distanceLabel) {
-                        distanceLabel = viewer.entities.add({
-                            label: {
-                                show: false,
-                                showBackground: true,
-                                backgroundColor: Cesium.Color.WHITE,
-                                font: '14px monospace',
-                                fillColor: Cesium.Color.BLACK,
-                                horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
-                                verticalOrigin: Cesium.VerticalOrigin.TOP,
-                                pixelOffset: new Cesium.Cartesian2(15, 0)
-                            }
-                        });
-                    }
-                    distanceLabel.label.show = true;
-                    distanceLabel.position = point;
-                    distanceLabel.label.text = '거리: ' + totalDistance.toFixed(2) + 'm';
+            if (Cesium.defined(earthPosition)) {
+                if (activeShapePoints.length === 0) {
+                    floatingPoint = createPoint(earthPosition);
+                    activeShapePoints.push(earthPosition);
+                    var dynamicPositions = new Cesium.CallbackProperty(function () {
+                        return activeShapePoints;
+                    }, false);
+                    activeShape = drawShape(dynamicPositions);
                 }
-                points.push(point);
+                activeShapePoints.push(earthPosition);
+                createPoint(earthPosition);
             }
         }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-
-        //마우스 오른쪽 클릭 시
-        handler.setInputAction(function (click) {
-
-            if (polylineEntity) {                       // 마우스 선 지우기
-                viewer.entities.remove(polylineEntity); //이어지지 않은 선 제거
-                polylineEntity = null;
-
-            } else if (startMarker == null) { //시작점 찍지않고 종료할 경우
-                return false;
-            }
-            distanceLabel.label.text = '총 거리: ' + totalDistance.toFixed(2) + 'm';
-            distanceLabel.label.show = true;
-            //초기화 작업
-            startMarker = null;
-            points = [];
-            totalDistance = 0;
-
-        }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
-
-
-        //마우스 움직일 때
-        handler.setInputAction(function (movement) {
-            var cartesian = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid); //클릭한 곳의 위치좌표
-
-            if (cartesian) {
-                if (!pointEntity) { //시작점이 없으면 새로운 점 추가
-                    pointEntity = addPointMarker(cartesian, Cesium.Color.YELLOW);
-                } else { //시작점이 있는경우 마우스위치로 포인트가 따라다님
-                    pointEntity.position = cartesian;
-                }
-
-                if (points.length > 0) { //시작점이 있으면, 점하나 찍었을 때
-                    var previousPoint = points[points.length - 1]; //마지막에 추가된 점
-                    var positions = [previousPoint, cartesian]; //마지막점과 현재 마우스의 위치를 가져옴
-
-                    if (polylineEntity) {
-                        polylineEntity.polyline.positions = positions;
-                    } else {
-                        polylineEntity = addPolyline(positions, Cesium.Color.YELLOW);
-                    }
+        handler.setInputAction(function (event) {
+            if (Cesium.defined(floatingPoint)) {
+                var newPosition = viewer.scene.pickPosition(event.endPosition);
+                if (Cesium.defined(newPosition)) {
+                    floatingPoint.position.setValue(newPosition);
+                    activeShapePoints.pop();
+                    activeShapePoints.push(newPosition);
                 }
             }
         }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
+        handler.setInputAction(function (event) {
+            terminateShape();
+        }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+
+        function terminateShape() {
+            if (activeShapePoints.length === 0) {
+                console.warn('activeShapePoints array is empty.');
+                return;
+            }
+
+            var positionData = activeShapePoints.slice(0, activeShapePoints.length - 1);
+            drawShape(positionData);
+            viewer.entities.remove(floatingPoint);
+            viewer.entities.remove(activeShape);
+            floatingPoint = undefined;
+            activeShape = undefined;
+            activeShapePoints = [];
+        }
+
+// 포인트 생성
+        function createPoint(worldPosition) {
+            var point = viewer.entities.add({
+                position: worldPosition,
+                point: {
+                    color: Cesium.Color.RED,
+                    pixelSize: 10,
+                    heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+                }
+            });
+            return point;
+        }
+
+        function drawShape(positionData) {
+            if (!(positionData instanceof Cesium.CallbackProperty)) {
+                console.error('positionData는 유효한 CallbackProperty 형식이 아닙니다.');
+                return;
+            }
+
+            // positionData를 필요한 형식으로 변환 (예: Cartesian3 배열)
+            var positions = positionData.getValue();
+
+            // positions 배열을 사용하여 도형 생성을 계속합니다.
+            // ...
+        }
+        // var shape;
+        // if (drawingMode === 'line') {
+        //     shape = viewer.entities.add({
+        //         polyline : {
+        //             positions : positionData,
+        //             clampToGround : true,
+        //             width : 3
+        //         }
+        //     });
+        // }
+        // else if (drawingMode === 'polygon') {
+        //     alert("면적구하기");
+        //     shape = viewer.entities.add({
+        //         polygon: {
+        //             hierarchy: new Cesium.PolygonHierarchy(positionData),
+        //             material: new Cesium.ColorMaterialProperty(Cesium.Color.AQUA.withAlpha(0.15))
+        //         }
+        //     });
+        // }
+        // return shape;
     }
 
-    function addPointMarker(position, color) {
-        return viewer.entities.add({
-            position: position,
-            point: {
-                pixelSize: 7,
-                color: color,
-                outlineColor: Cesium.Color.ORANGE,
-                outlineWidth: 2
-            }
-        });
-    }
 
-    function addPolyline(positions, color) {
-        return viewer.entities.add({
-            polyline: {
-                positions: positions,
-                width: 2.0,
-                material: new Cesium.PolylineDashMaterialProperty({
-                    color: color,
-                    dashLength: 10.0, // 점선의 선 길이
-                    dashPattern: 255 // 점선 패턴 (0xFF 값)
-                })
-            }
-        });
-    }
+    // //거리측정 부분
+    // var points = [];            //점들의 배열
+    // var totalDistance = 0;      //총거리 저장하는 변수
+    // var startMarker = null;     //처음 시작 점
+    // var handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+    // var pointEntity = null;
+    // var polylineEntity = null;  //점사이 선
+    // // var distanceLabel = "";     //거리측정 라벨
+    // var distanceLabel = null;
+    //
+    // function handleMouseClick() {
+    //
+    //     //마우스 왼쪽클릭 시
+    //     handler.setInputAction(function (click) {
+    //
+    //         //위치좌표
+    //         var windowPosition = new Cesium.Cartesian2(click.position.x, click.position.y);
+    //         var pickRay = viewer.camera.getPickRay(windowPosition);
+    //         var intersection = viewer.scene.globe.pick(pickRay, viewer.scene);
+    //
+    //         if (Cesium.defined(intersection)) {
+    //             var point = intersection;
+    //
+    //             if (!startMarker) { //처음포인트 찍기 전
+    //                 totalDistance = 0;
+    //                 startMarker = addPointMarker(point, Cesium.Color.YELLOW);
+    //             } else { //처음포인트 찍은 후
+    //                 addPointMarker(point, Cesium.Color.YELLOW);
+    //
+    //                 var previousPoint = points[points.length - 1];
+    //                 var distance = Cesium.Cartesian3.distance(previousPoint, point);
+    //                 totalDistance += distance;
+    //
+    //                 var polyline = viewer.entities.add({
+    //                     polyline: {
+    //                         positions: [previousPoint, point],
+    //                         width: 2.0,
+    //                         material: Cesium.Color.YELLOW
+    //                     }
+    //                 });
+    //
+    //                 if (!distanceLabel) {
+    //                     distanceLabel = viewer.entities.add({
+    //                         label: {
+    //                             show: false,
+    //                             showBackground: true,
+    //                             backgroundColor: Cesium.Color.WHITE,
+    //                             font: '14px monospace',
+    //                             fillColor: Cesium.Color.BLACK,
+    //                             horizontalOrigin: Cesium.HorizontalOrigin.LEFT,
+    //                             verticalOrigin: Cesium.VerticalOrigin.TOP,
+    //                             pixelOffset: new Cesium.Cartesian2(15, 0)
+    //                         }
+    //                     });
+    //                 }
+    //                 distanceLabel.label.show = true;
+    //                 distanceLabel.position = point;
+    //                 distanceLabel.label.text = '거리: ' + totalDistance.toFixed(2) + 'm';
+    //             }
+    //             points.push(point);
+    //         }
+    //     }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+    //
+    //
+    //     //마우스 오른쪽 클릭 시
+    //     handler.setInputAction(function (click) {
+    //
+    //         if (polylineEntity) {                       // 마우스 선 지우기
+    //             viewer.entities.remove(polylineEntity); //이어지지 않은 선 제거
+    //             polylineEntity = null;
+    //
+    //         } else if (startMarker == null) { //시작점 찍지않고 종료할 경우
+    //             return false;
+    //         }
+    //         distanceLabel.label.text = '총 거리: ' + totalDistance.toFixed(2) + 'm';
+    //         distanceLabel.label.show = true;
+    //         //초기화 작업
+    //         startMarker = null;
+    //         points = [];
+    //         totalDistance = 0;
+    //
+    //     }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+    //
+    //
+    //     //마우스 움직일 때
+    //     handler.setInputAction(function (movement) {
+    //         var cartesian = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid); //클릭한 곳의 위치좌표
+    //
+    //         if (cartesian) {
+    //             if (!pointEntity) { //시작점이 없으면 새로운 점 추가
+    //                 pointEntity = addPointMarker(cartesian, Cesium.Color.YELLOW);
+    //             } else { //시작점이 있는경우 마우스위치로 포인트가 따라다님
+    //                 pointEntity.position = cartesian;
+    //             }
+    //
+    //             if (points.length > 0) { //시작점이 있으면, 점하나 찍었을 때
+    //                 var previousPoint = points[points.length - 1]; //마지막에 추가된 점
+    //                 var positions = [previousPoint, cartesian]; //마지막점과 현재 마우스의 위치를 가져옴
+    //
+    //                 if (polylineEntity) {
+    //                     polylineEntity.polyline.positions = positions;
+    //                 } else {
+    //                     polylineEntity = addPolyline(positions, Cesium.Color.YELLOW);
+    //                 }
+    //             }
+    //         }
+    //     }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+    //
+    // }
+    //
+    // function addPointMarker(position, color) {
+    //     return viewer.entities.add({
+    //         position: position,
+    //         point: {
+    //             pixelSize: 7,
+    //             color: color,
+    //             outlineColor: Cesium.Color.ORANGE,
+    //             outlineWidth: 2
+    //         }
+    //     });
+    // }
+    //
+    // function addPolyline(positions, color) {
+    //     return viewer.entities.add({
+    //         polyline: {
+    //             positions: positions,
+    //             width: 2.0,
+    //             material: new Cesium.PolylineDashMaterialProperty({
+    //                 color: color,
+    //                 dashLength: 10.0, // 점선의 선 길이
+    //                 dashPattern: 255 // 점선 패턴 (0xFF 값)
+    //             })
+    //         }
+    //     });
+    // }
+
     //거리측정, 면적측정 지우기
-    function removeElements() {
-        viewer.entities.removeAll(); //point, line 삭제
-        handler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
-        handler.removeInputAction(Cesium.ScreenSpaceEventType.RIGHT_CLICK);
-        handler.removeInputAction(Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-
-        // 초기화 작업
-        startMarker = null;
-        points = [];
-        totalDistance = 0;
-        distanceLabel = "";
-        pointEntity = null;
-
-    }
+    // function removeElements() {
+    //     viewer.entities.removeAll(); //point, line 삭제
+    //     handler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK);
+    //     handler.removeInputAction(Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+    //     handler.removeInputAction(Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+    //
+    //     // 초기화 작업
+    //     startMarker = null;
+    //     points = [];
+    //     totalDistance = 0;
+    //     distanceLabel = "";
+    //     pointEntity = null;
+    //
+    // }
 </script>
 </body>
 </html>
